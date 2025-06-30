@@ -37,8 +37,8 @@ const App = () => {
   const [authMessage, setAuthMessage] = useState("");
   const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(false);
   const [hasPasskey, setHasPasskey] = useState(false);
-  const API_BASE_URL = "http://localhost:8000/api";
-  // const API_BASE_URL = "https://dialmate-backend.onrender.com/api";
+  // const API_BASE_URL = "http://localhost:8000/api";
+  const API_BASE_URL = "https://dialmate-backend.onrender.com/api";
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navItems = [
