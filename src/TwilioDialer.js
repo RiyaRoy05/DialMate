@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FiPhone, FiUsers } from "react-icons/fi";
 import { Device } from "@twilio/voice-sdk";
+import { useNavigate } from "react-router-dom"; 
 
 const TwilioDialer = ({
   goToView = () => {},
@@ -10,9 +11,10 @@ const TwilioDialer = ({
   setDialNumber: externalSetDialNumber,
   dialNumber: externalDialNumber,
   user = {},
-  // API_BASE_URL = "http://127.0.0.1:8000",
-  API_BASE_URL = "https://dialmate-backend.onrender.com"
+  API_BASE_URL = "http://127.0.0.1:8000",
+  // API_BASE_URL = "https://dialmate-backend.onrender.com"
 }) => {
+  const navigate = useNavigate(); 
   const [internalDialNumber, setInternalDialNumber] = useState("");
   const [callState, setCallState] = useState("idle");
   const [callStatusMsg, setCallStatusMsg] = useState("");
@@ -62,7 +64,6 @@ const TwilioDialer = ({
       const data = await response.json();
       return data.token;
     } catch (error) {
-      console.error("Error getting access token:", error);
       throw error;
     }
   }, [API_BASE_URL]);
@@ -84,31 +85,26 @@ const TwilioDialer = ({
         });
 
         twilioDevice.on("registered", () => {
-          console.log("Twilio Device registered");
           setCallStatusMsg("Ready to dial");
           setLoading(false);
         });
 
         twilioDevice.on("error", (error) => {
-          console.error("Twilio Device error:", error);
           setError(`Device Error: ${error.message}`);
           setCallStatusMsg("Device Error");
           setLoading(false);
         });
 
         twilioDevice.on("incoming", (conn) => {
-          console.log("Incoming call:", conn);
            setCallState("dialing");
            setCallStatusMsg("Dialing...");
         });
 
         twilioDevice.on("tokenWillExpire", async () => {
-          console.log("Token will expire, refreshing...");
           try {
             const newToken = await getAccessToken();
             twilioDevice.updateToken(newToken);
           } catch (error) {
-            console.error("Failed to refresh token:", error);
             setError("Failed to refresh token");
           }
         });
@@ -118,7 +114,6 @@ const TwilioDialer = ({
           setDevice(twilioDevice);
         }
       } catch (error) {
-        console.error("Failed to setup Twilio Device:", error);
         if (mounted) {
           setError(`Failed to setup Twilio Device: ${error.message}`);
           setCallStatusMsg("Device setup failed");
@@ -134,7 +129,6 @@ const TwilioDialer = ({
       if (twilioDevice) {
         twilioDevice.destroy();
       }
-      // Clear any pending refresh timeouts
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
@@ -147,10 +141,8 @@ const TwilioDialer = ({
       
       stream.getTracks().forEach(track => track.stop());
       
-      console.log("Microphone access granted");
       return true;
     } catch (err) {
-      console.error("Microphone access denied:", err);
       setCallStatusMsg("Microphone access denied");
       setCallState("error");
       setError("Microphone access is required to make calls");
@@ -159,15 +151,12 @@ const TwilioDialer = ({
   };
 
   const handleKeypad = (val) => {
-    console.log('Keypad pressed:', val, 'Current state:', callState, 'Loading:', loading);
     
     if (["idle", "ended", "error"].includes(callState) && !loading) {
       const safeDialNumber = dialNumber || "";
-      console.log('Current dial number:', safeDialNumber);
       
       if (safeDialNumber.length < 15) {
         const newNumber = safeDialNumber + val;
-        console.log('Setting new number:', newNumber);
         setDialNumber(newNumber);
       }
     }
@@ -217,7 +206,6 @@ const TwilioDialer = ({
       let callAnswered = false;
 
       conn.on("accept", () => {
-        console.log("Call accepted");
         setCallState("in-call");
         setCallStatusMsg("In Call");
         callAnswered = true;
@@ -225,12 +213,10 @@ const TwilioDialer = ({
       });
 
       conn.on("disconnect", (conn) => {
-        console.log("Call disconnected");
         handleCallEnd(callAnswered);
       });
 
       conn.on("error", (error) => {
-        console.error("Call error:", error);
         let msg = error && error.message ? error.message : "Call Error";
         if (msg.includes("31005")) msg = "Twilio: Call could not be completed. Check your TwiML App Voice URL and number format.";
         if (msg.includes("31404")) msg = "Twilio: Number not found or not allowed. Use E.164 format and verify number in Twilio.";
@@ -244,19 +230,16 @@ const TwilioDialer = ({
       });
 
       conn.on("ringing", () => {
-        console.log("Call ringing");
         setCallState("ringing");
         setCallStatusMsg("Ringing...");
         logCall("ringing");
       });
 
       conn.on("cancel", () => {
-        console.log("Call cancelled");
         handleCallEnd(false, "cancelled");
       });
 
     } catch (error) {
-      console.error("Failed to make call:", error);
       let msg = error && error.message ? error.message : "Call failed";
       if (msg.includes("31005")) msg = "Twilio: Call could not be completed. Check your TwiML App Voice URL and number format.";
       if (msg.includes("31404")) msg = "Twilio: Number not found or not allowed. Use E.164 format and verify number in Twilio.";
@@ -269,9 +252,7 @@ const TwilioDialer = ({
     }
   };
 
-  // New unified call end handler
   const handleCallEnd = (wasAnswered, customStatus = null) => {
-    console.log("Handling call end - wasAnswered:", wasAnswered, "customStatus:", customStatus);
     
     setCallState("ended");
     setCallStatusMsg("Call Ended");
@@ -295,50 +276,55 @@ const TwilioDialer = ({
     if (connection) {
       connection.disconnect();
     } else {
-      // If no active connection, just reset the state
       handleCallEnd(false, "ended");
     }
   };
 
   const callIdRef = useRef(null);
 
-  // Improved call cleanup with proper timing
-  const scheduleCallCleanup = () => {
-    console.log("Scheduling call cleanup");
+  const refreshPageAndRedirect = () => {
     
-    // Clear any existing timeout
+    setDialNumber("");
+    setCallState("idle");
+    setCallStatusMsg("Ready to dial");
+    setConnection(null);
+    setError("");
+    setCallDuration(0);
+    callStartTime.current = null;
+    callLoggedRef.current = false;
+    callIdRef.current = null;
+    
+    if (callDurationInterval.current) {
+      clearInterval(callDurationInterval.current);
+      callDurationInterval.current = null;
+    }
+    
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+    
+    refreshCallHistory();
+    
+    window.location.href = '/dialer';
+    navigate('/dialer', { replace: true });
+
+  };
+
+  const scheduleCallCleanup = () => {
+    
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
     }
-    
-    // Schedule cleanup after a short delay to ensure all state updates are complete
     refreshTimeoutRef.current = setTimeout(() => {
-      console.log("Executing call cleanup");
-      
-      // Clear the dial number
-      setDialNumber("");
-      
-      // Reset error state
-      setError("");
-      
-      // Refresh call history
-      refreshCallHistory();
-      
-      // Reset call state to idle after a brief delay
-      setTimeout(() => {
-        setCallState("idle");
-        setCallStatusMsg("Ready to dial");
-      }, 500);
-      
-    }, 1000); // Wait 1 second before cleanup
+      refreshPageAndRedirect();
+    }, 2000); 
   };
 
   const refreshCallHistory = async () => {
-    console.log("Refreshing call history");
     try {
       const token = localStorage.getItem("access");
       if (!token) {
-        console.warn("No token available for refreshing call history");
         return;
       }
       
@@ -352,21 +338,16 @@ const TwilioDialer = ({
       
       if (response.ok) {
         const data = await response.json();
-        console.log("Call history refreshed successfully, entries:", data.length);
         setCallHistory(data);
       } else {
-        console.error("Failed to refresh call history:", response.status, response.statusText);
       }
     } catch (err) {
-      console.error("Error refreshing call history:", err);
     }
   };
 
   const logCall = async (status) => {
-    console.log("Logging call with status:", status);
     
     if (callLoggedRef.current && ["ended", "failed", "cancelled"].includes(status)) {
-      console.log("Call already logged, skipping duplicate log");
       return;
     }
 
@@ -381,23 +362,19 @@ const TwilioDialer = ({
       duration,
     };
 
-    // Update local state immediately
     setCallHistory((prev) => [callRecord, ...prev]);
 
     if (!dialNumber || dialNumber.trim() === "") {
-      console.warn("Not logging call to backend: dialNumber is empty");
       return;
     }
 
     try {
       const token = localStorage.getItem("access");
       if (!token) {
-        console.warn("Not logging call to backend: No authentication token");
         return;
       }
 
       if (!callIdRef.current && status === "ringing") {
-        console.log("Creating new call record");
         const response = await fetch(`${API_BASE_URL}/api/make-call/`, {
           method: "POST",
           headers: {
@@ -417,10 +394,8 @@ const TwilioDialer = ({
         
         const result = await response.json();
         callIdRef.current = result.call_id;
-        console.log("Call created, call_id:", callIdRef.current);
         
       } else if (callIdRef.current && ["in_call", "ended", "failed", "cancelled", "no-answer"].includes(status)) {
-        console.log("Updating call status to:", status);
         const response = await fetch(`${API_BASE_URL}/api/update-call-status/`, {
           method: "POST",
           headers: {
@@ -439,17 +414,13 @@ const TwilioDialer = ({
         }
         
         const result = await response.json();
-        console.log("Call status updated:", result);
         
-        // Mark as logged and reset call ID for final statuses
         if (["ended", "failed", "cancelled", "no-answer"].includes(status)) {
           callLoggedRef.current = true;
           callIdRef.current = null;
-          console.log("Call logging completed for final status:", status);
         }
       }
     } catch (error) {
-      console.error('Failed to log/update call to backend:', error);
     }
   };
 
