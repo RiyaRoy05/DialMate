@@ -37,8 +37,8 @@ const App = () => {
   const [authMessage, setAuthMessage] = useState("");
   const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(false);
   const [hasPasskey, setHasPasskey] = useState(false);
-  // const API_BASE_URL = "http://localhost:8000/api";
-  const API_BASE_URL = "https://dialmate-backend.onrender.com/api";
+  const API_BASE_URL = "http://localhost:8000/api";
+  // const API_BASE_URL = "https://dialmate-backend.onrender.com/api";
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navItems = [
@@ -140,7 +140,6 @@ const App = () => {
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
       ...options,
     };
 
@@ -239,6 +238,9 @@ const App = () => {
             new Uint8Array(credential.response.attestationObject)
           ),
         },
+        // Pass the challenge from the begin step for stateless backend
+        challenge: options.challenge,
+        user: options.user, // Ensure user object is sent for backend
       };
 
       if (credential.authenticatorAttachment) {
@@ -261,7 +263,6 @@ const App = () => {
       }
     } catch (error) {
       setAuthState("error");
-
       if (error.name === "InvalidStateError") {
         setAuthMessage(
           "A passkey already exists for this device. Try signing in instead."
@@ -342,6 +343,8 @@ const App = () => {
             : null,
         },
         authenticatorAttachment: credential.authenticatorAttachment,
+        // Pass the challenge from the begin step for stateless backend
+        challenge: options.challenge,
       };
 
       const completeResponse = await apiCall("/auth/login-complete/", {
@@ -365,7 +368,6 @@ const App = () => {
       }
     } catch (error) {
       setAuthState("error");
-
       if (error.name === "NotAllowedError") {
         setAuthMessage("Authentication was cancelled or failed.");
       } else if (error.name === "AbortError") {
