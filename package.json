@@ -2,7 +2,7 @@
   "name": "secure-dialer-dashboard",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:8000",
+  "proxy": "https://dialmate-backend.onrender.com",
   "dependencies": {
     "@simplewebauthn/browser": "^13.1.0",
     "@testing-library/dom": "^10.4.0",
